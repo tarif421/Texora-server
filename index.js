@@ -28,17 +28,25 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-     const db = client.db('Texora-DB')
-     const productCollection = db.collection('all-products')
+    const db = client.db("Texora-DB");
+    const productCollection = db.collection("all-products");
 
     // add  product api
-    app.post('/all-products', async(req, res) => {
+    app.post("/all-products", async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.send(result);
+    });
 
-    })
-
-
-
-
+    //  latest product api
+    app.get("/latestProducts", async (req, res) => {
+      const result = await productCollection
+        .find()
+        .sort({ _id: -1 })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
