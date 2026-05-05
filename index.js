@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 3000;
 
 //  middleware
@@ -30,6 +30,16 @@ async function run() {
 
     const db = client.db("Texora-DB");
     const productCollection = db.collection("all-products");
+    const userCollection = db.collection("users");
+
+    // users api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      user.role = "user";
+
+      const result = await userCollection.insertOne(user);
+      res.send(result)
+    });
 
     // add  product api
     app.post("/all-products", async (req, res) => {
@@ -47,6 +57,22 @@ async function run() {
         .toArray();
       res.send(result);
     });
+    //  all products api
+    app.get("/all-products", async (req, res) => {
+      const product = productCollection.find();
+      const result = await product.toArray();
+      res.send(result);
+    });
+
+    // prduct details
+    app.get("/productsDetails/:id", async (req, res) => {
+      const details = await productCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.json(details);
+    });
+
+    ////////////////////////////////////
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
