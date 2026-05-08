@@ -35,7 +35,7 @@ async function run() {
     // users api
     app.post("/users", async (req, res) => {
       const user = req.body;
-      user.role = "buyer";
+      user.role = "user";
       user.createdAt = new Date();
       const email = user.email;
       const userExists = await userCollection.findOne({ email });
@@ -45,6 +45,13 @@ async function run() {
       }
 
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+
+    //  admin route apis
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
       res.send(result);
     });
 
