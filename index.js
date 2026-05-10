@@ -31,7 +31,7 @@ async function run() {
     const db = client.db("Texora-DB");
     const productCollection = db.collection("all-products");
     const userCollection = db.collection("users");
-
+    const orderCollection = db.collection("orders");
     // users api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -48,13 +48,56 @@ async function run() {
       res.send(result);
     });
 
-
     //  admin route apis
     app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+    // ///////////////////////////
 
+    // get single userrole
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+
+      const user = await userCollection.findOne({
+        email,
+      });
+
+      if (!user) {
+        return res.status(404).send({
+          message: "User not found",
+        });
+      }
+
+      res.send({
+        role: user.role,
+        status: user.status || "active",
+      });
+    });
+
+    // update user role + status
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const { role, status } = req.body;
+
+      const filter = {
+        _id: new ObjectId(id),
+      };
+
+      const updatedDoc = {
+        $set: {
+          role,
+          status,
+        },
+      };
+
+      const result = await userCollection.updateOne(filter, updatedDoc);
+
+      res.send(result);
+    });
+    // //////
+    // //// All Products
     // add  product api
     app.post("/all-products", async (req, res) => {
       const product = req.body;
@@ -71,7 +114,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    //  all products api
+     //all products api
     app.get("/all-products", async (req, res) => {
       const product = productCollection.find();
       const result = await product.toArray();
@@ -87,6 +130,12 @@ async function run() {
     });
 
     ////////////////////////////////////
+    //  booking page
+    app.post("/orders", async (req, res) => {
+      const buyerOrders = req.body;
+      const result = await orderCollection.insertOne(buyerOrders);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
