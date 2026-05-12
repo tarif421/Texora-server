@@ -6,6 +6,7 @@ const cors = require("cors");
 const app = express();
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const stripe = require("stripe")(process.env.STRIPE_SECRETE);
 const port = process.env.PORT || 3000;
 
 //  middleware
@@ -32,6 +33,30 @@ async function run() {
     const productCollection = db.collection("all-products");
     const userCollection = db.collection("users");
     const orderCollection = db.collection("orders");
+
+    // payment related APIs
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      const session = await stripe.checkout.session.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+           price_data: {
+            currency: 'USD',
+            unit_amount: 1500,
+            product_data: {
+                name: paymentInfo.productTitle
+            }
+           },
+
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        customer_email: paymentInfo.email,
+        success_url: `${process.env.SITE_DOMAIN}/booking/payment-success`,
+      });
+    });
     // users api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -114,7 +139,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
-     //all products api
+    //all products api
     app.get("/all-products", async (req, res) => {
       const product = productCollection.find();
       const result = await product.toArray();
