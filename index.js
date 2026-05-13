@@ -37,29 +37,34 @@ async function run() {
     // payment related APIs
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
-      const session = await stripe.checkout.session.create({
+
+      //TotalPrice কে সেন্টে রূপান্তর ($1 = 100 cents)
+      const amount = Math.round(parseFloat(paymentInfo.totalPrice) * 100);
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
         line_items: [
           {
-            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
             price_data: {
-              currency: "USD",
-              unit_amount: 1500,
+              currency: "usd",
+              unit_amount: amount, // ডাইনামিক এমাউন্ট
               product_data: {
                 name: paymentInfo.productTitle,
               },
             },
-
             quantity: 1,
           },
         ],
         customer_email: paymentInfo.email,
         mode: "payment",
         metadata: {
-          productId: paymentInfo.productId,
+          orderId: paymentInfo.orderId, // database এ সেভ হওয়া অর্ডারের আইডি
         },
-        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders/payment-success`,
-        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders/payment-cancelled`,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders?success=true`,
+        cancel_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders?canceled=true`,
       });
+
+      res.send({ url: session.url });
     });
     // users api
     app.post("/users", async (req, res) => {
