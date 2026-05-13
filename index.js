@@ -38,7 +38,6 @@ async function run() {
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
 
-      //TotalPrice কে সেন্টে রূপান্তর ($1 = 100 cents)
       const amount = Math.round(parseFloat(paymentInfo.totalPrice) * 100);
 
       const session = await stripe.checkout.sessions.create({
@@ -47,7 +46,7 @@ async function run() {
           {
             price_data: {
               currency: "usd",
-              unit_amount: amount, // ডাইনামিক এমাউন্ট
+              unit_amount: amount,
               product_data: {
                 name: paymentInfo.productTitle,
               },
@@ -58,13 +57,23 @@ async function run() {
         customer_email: paymentInfo.email,
         mode: "payment",
         metadata: {
-          orderId: paymentInfo.orderId, // database এ সেভ হওয়া অর্ডারের আইডি
+          orderId: paymentInfo.orderId,
         },
-        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders?success=true`,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders?success=true&orderId=${paymentInfo.orderId}`,
         cancel_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders?canceled=true`,
       });
 
       res.send({ url: session.url });
+    });
+    // payment update
+    app.patch("/orders/pay/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { paymentStatus: "paid" },
+      };
+      const result = await orderCollection.updateOne(filter, updateDoc);
+      res.send(result);
     });
     // users api
     app.post("/users", async (req, res) => {
