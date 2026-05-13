@@ -41,20 +41,24 @@ async function run() {
         line_items: [
           {
             // Provide the exact Price ID (for example, price_1234) of the product you want to sell
-           price_data: {
-            currency: 'USD',
-            unit_amount: 1500,
-            product_data: {
-                name: paymentInfo.productTitle
-            }
-           },
+            price_data: {
+              currency: "USD",
+              unit_amount: 1500,
+              product_data: {
+                name: paymentInfo.productTitle,
+              },
+            },
 
             quantity: 1,
           },
         ],
-        mode: "payment",
         customer_email: paymentInfo.email,
-        success_url: `${process.env.SITE_DOMAIN}/booking/payment-success`,
+        mode: "payment",
+        metadata: {
+          productId: paymentInfo.productId,
+        },
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders/payment-success`,
+        success_url: `${process.env.SITE_DOMAIN}/dashboard/my-orders/payment-cancelled`,
       });
     });
     // users api
