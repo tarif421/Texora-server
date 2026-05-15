@@ -193,12 +193,12 @@ async function run() {
         const { status, search } = req.query;
         let query = {};
 
-        // Status ফিল্টার যুক্ত করা
+        // Status
         if (status && status !== "All") {
           query.status = status;
         }
 
-        // Search (Order ID দিয়ে)
+        // Search
         if (search) {
           query._id = search;
         }
@@ -216,10 +216,45 @@ async function run() {
       const result = await orderCollection.findOne(query);
       res.send(result);
     });
+    //  toggle product
+    // app.patch("/products/toggle-home/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const { showOnHome } = req.body;
+    //   const query = { _id: new ObjectId(id) };
+    //   const updateDoc = {
+    //     $set: { showOnHome: showOnHome },
+    //   };
+    //   const result = await productCollection.updateOne(query, updateDoc);
+    //   res.send(result);
+    // });
     app.delete(`/users/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // /////////////////////////////// Manager route
+    app.get("/products/manager-only", async (req, res) => {
+      const email = req.query.email; 
+      const search = req.query.search || "";
+
+   
+      let query = { managerEmail: email };
+
+    
+      if (search) {
+        query.productName = { $regex: search, $options: "i" };
+      }
+
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.delete("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productCollection.deleteOne(query);
       res.send(result);
     });
     await client.db("admin").command({ ping: 1 });
