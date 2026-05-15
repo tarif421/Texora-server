@@ -157,6 +157,7 @@ async function run() {
         .toArray();
       res.send(result);
     });
+    // //////////////////////////  Admin
     //all products api
     app.get("/all-products", async (req, res) => {
       const product = productCollection.find();
@@ -172,7 +173,6 @@ async function run() {
       res.json(details);
     });
 
-    ////////////////////////////////////
     //  booking page
     app.post("/orders", async (req, res) => {
       const buyerOrders = req.body;
@@ -186,13 +186,42 @@ async function run() {
       const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
-    // app.delete("/orders/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: new ObjectId(id) };
-    //   const result = await ordersCollection.deleteOne(query);
-    //   res.send(result);
-    // });
-    // Send a ping to confirm a successful connection
+    //  all orders
+
+    app.get("/all-orders", async (req, res) => {
+      try {
+        const { status, search } = req.query;
+        let query = {};
+
+        // Status ফিল্টার যুক্ত করা
+        if (status && status !== "All") {
+          query.status = status;
+        }
+
+        // Search (Order ID দিয়ে)
+        if (search) {
+          query._id = search;
+        }
+
+        const result = await orderCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching orders", error });
+      }
+    });
+    // Get specific order details by ID
+    app.get("/order/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await orderCollection.findOne(query);
+      res.send(result);
+    });
+    app.delete(`/users/:id`, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
