@@ -235,14 +235,15 @@ async function run() {
     });
 
     // /////////////////////////////// Manager route
+    //  1
     app.get("/products/manager-only", async (req, res) => {
-      const email = req.query.email; 
+      const email = req.query.email; // ফ্রন্টএন্ড থেকে পাঠানো ইমেইল
       const search = req.query.search || "";
 
-   
+      // কুয়েরিতে managerEmail ফিল্ডটি চেক করা হচ্ছে যা আপনি একটু আগে অ্যাড করলেন
       let query = { managerEmail: email };
 
-    
+      // যদি সার্চ বক্সে কিছু লিখে থাকেন, তবে সার্চ লজিক যোগ হবে
       if (search) {
         query.productName = { $regex: search, $options: "i" };
       }
@@ -250,11 +251,70 @@ async function run() {
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
+    2;
+    app.get("/pending-orders", async (req, res) => {
+      try {
+        const query = {
+          status: "pending",
+        };
 
-    app.delete("/products/:id", async (req, res) => {
+        const result = await orderCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Pending orders error:", error);
+        res.status(500).send({ message: "Failed to load pending orders" });
+      }
+    });
+    app.get("/orders/pending", async (req, res) => {
+      const pending = req.query.e;
+    });
+    // 3. Update order status (Approve / Reject)
+    app.patch("/orders/:id/approve", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const result = await orderCollection.updateOne(
+          {
+            _id: new ObjectId(id),
+            status: "pending",
+          },
+          {
+            $set: {
+              status: "Approved",
+              approvedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("Approve order error:", error);
+        res.status(500).send({ message: "Failed to approve order" });
+      }
+    });
+    // 4
+    app.patch("/orders/:id/reject", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await productCollection.deleteOne(query);
+
+      const result = await orderCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "rejected",
+            rejectedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      );
+
       res.send(result);
     });
     await client.db("admin").command({ ping: 1 });
