@@ -317,6 +317,227 @@ async function run() {
 
       res.send(result);
     });
+
+    //  approved orders page
+
+    app.get("/approved-orders", async (req, res) => {
+      try {
+        const result = await orderCollection
+          .find({ status: "Approved" })
+          .sort({ approvedAt: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to load approved orders" });
+      }
+    });
+
+    app.post("/orders/:id/tracking", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const tracking = req.body;
+
+        const newTracking = {
+          location: tracking.location,
+          note: tracking.note,
+          status: tracking.status,
+          createdAt: new Date(),
+        };
+
+        const result = await orderCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $push: {
+              trackingHistory: newTracking,
+            },
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Tracking update failed" });
+      }
+    });
+
+    app.get("/orders/:id/tracking", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const order = await orderCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send(order?.trackingHistory || []);
+      } catch (error) {
+        res.status(500).send({ message: "Tracking load failed" });
+      }
+    });
+
+    // //////////////////////////////////// Buyer route
+    // 1
+
+    app.get("/my-orders/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        const result = await orderCollection
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to load orders" });
+      }
+    });
+    // 2
+
+    app.patch("/orders/:id/cancel", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const result = await orderCollection.updateOne(
+          {
+            _id: new ObjectId(id),
+            status: "pending",
+          },
+          {
+            $set: {
+              status: "cancelled",
+              cancelledAt: new Date(),
+            },
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Cancel failed" });
+      }
+    });
+    // 3
+    app.get("/order/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        // invalid id check
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+
+        const order = await orderCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+
+        // if tracking not exist → empty array
+        order.trackingHistory = order.trackingHistory || [];
+
+        res.send(order);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to load order details" });
+      }
+    });
+
+    // 4 tracking orders
+
+    app.get("/my-orders/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        const orders = await orderCollection
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(orders);
+      } catch (error) {
+        console.error("My Orders Error:", error);
+        res.status(500).send({ message: "Failed to load orders" });
+      }
+    });
+
+    // 5
+    app.get("/order/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ message: "Invalid ID" });
+        }
+
+        const order = await orderCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+
+        // trackingHistory exists
+        order.trackingHistory = order.trackingHistory || [];
+
+        res.send(order);
+      } catch (error) {
+        console.error("Order Fetch Error:", error);
+        res.status(500).send({ message: "Failed to fetch order" });
+      }
+    });
+    // 6
+    app.post("/orders/:id/tracking", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status, location, note } = req.body;
+
+        const newStep = {
+          status,
+          location,
+          note,
+          createdAt: new Date(),
+        };
+
+        const result = await orderCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $push: {
+              trackingHistory: newStep,
+            },
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("Tracking Add Error:", error);
+        res.status(500).send({ message: "Tracking add failed" });
+      }
+    });
+    // 7
+    app.patch("/orders/:id/update-status", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status } = req.body;
+
+        const result = await orderCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              status: status,
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Status update failed" });
+      }
+    });
+    // /////
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
