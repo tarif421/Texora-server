@@ -164,13 +164,53 @@ async function run() {
       const result = await product.toArray();
       res.send(result);
     });
-
+    // delete
+    app.delete("/all-products/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await productCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
     // prduct details
     app.get("/productsDetails/:id", async (req, res) => {
       const details = await productCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
       res.json(details);
+    });
+    //
+    //  update products 1
+    app.get("/products/:id", async (req, res) => {
+      const product = await productCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(product);
+    });
+    //  2
+    app.patch("/products/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const updateData = { ...req.body };
+
+        //  remove _id (VERY IMPORTANT)
+        delete updateData._id;
+
+        console.log("UPDATE DATA:", updateData);
+
+        const result = await productCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: updateData,
+          },
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error("UPDATE ERROR:", error);
+        res.status(500).send({ message: "Update failed" });
+      }
     });
 
     //  booking page
@@ -182,7 +222,7 @@ async function run() {
     // my orders
     app.get("/orders/:email", async (req, res) => {
       const userEmail = req.params.email;
-      const query = { email: userEmail }; // আপনার ডাটাবেসে ইমেইল ফিল্ডের নাম যা দিয়েছেন
+      const query = { email: userEmail }; 
       const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
@@ -209,7 +249,7 @@ async function run() {
         res.status(500).send({ message: "Error fetching orders", error });
       }
     });
-    // Get specific order details by ID
+    //  specific order details by ID
     app.get("/order/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
