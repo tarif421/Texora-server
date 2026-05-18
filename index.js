@@ -222,7 +222,7 @@ async function run() {
     // my orders
     app.get("/orders/:email", async (req, res) => {
       const userEmail = req.params.email;
-      const query = { email: userEmail }; 
+      const query = { email: userEmail };
       const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
@@ -233,21 +233,33 @@ async function run() {
         const { status, search } = req.query;
         let query = {};
 
-        // Status
+        //  Status filter (case-insensitive)
         if (status && status !== "All") {
-          query.status = status;
+          query.status = { $regex: `^${status}$`, $options: "i" };
         }
 
-        // Search
+        //  Search by ID
         if (search) {
-          query._id = search;
+          try {
+            query._id = new ObjectId(search);
+          } catch {
+            // invalid id ignore
+          }
         }
 
         const result = await orderCollection.find(query).toArray();
         res.send(result);
       } catch (error) {
-        res.status(500).send({ message: "Error fetching orders", error });
+        console.error(error);
+        res.status(500).send({ message: "Error fetching orders" });
       }
+    });
+    //  dlete
+    app.delete("/all-orders/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await orderCollection.deleteOne(query);
+      res.send(result);
     });
     //  specific order details by ID
     app.get("/order/:id", async (req, res) => {
@@ -277,13 +289,11 @@ async function run() {
     // /////////////////////////////// Manager route
     //  1
     app.get("/products/manager-only", async (req, res) => {
-      const email = req.query.email; // ফ্রন্টএন্ড থেকে পাঠানো ইমেইল
+      const email = req.query.email;
       const search = req.query.search || "";
 
-      // কুয়েরিতে managerEmail ফিল্ডটি চেক করা হচ্ছে যা আপনি একটু আগে অ্যাড করলেন
       let query = { managerEmail: email };
 
-      // যদি সার্চ বক্সে কিছু লিখে থাকেন, তবে সার্চ লজিক যোগ হবে
       if (search) {
         query.productName = { $regex: search, $options: "i" };
       }
