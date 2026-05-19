@@ -9,9 +9,51 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const stripe = require("stripe")(process.env.STRIPE_SECRETE);
 const port = process.env.PORT || 3000;
 
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./texora-f0bfe-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 //  middleware
 app.use(express.json());
 app.use(cors());
+//  verify token
+const verifyFBToken = async (req, res, next) => {
+  // console.log("headers in the middleweare", req.headers.authorization);
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).send({ messege: "unauthorized access" });
+  }
+
+  try {
+    const idToken = token.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    console.log("decoded in the token", decoded);
+    req.decoded_email = decoded.email;
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+};
+//  verifyRole
+const verifyRole = (allowedRoles) => {
+  return async (req, res, next) => {
+    const email = req.decoded_email;
+
+    const user = await userCollection.findOne({ email: email });
+    const userRole = user?.role;
+
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).send({ message: "Forbidden Access! " });
+    }
+
+    next();
+  };
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/?appName=Cluster0`;
 
@@ -92,14 +134,15 @@ async function run() {
     });
 
     //  admin route apis
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyFBToken, async (req, res) => {
       const result = await userCollection.find().toArray();
+
       res.send(result);
     });
     // ///////////////////////////
 
     // get single userrole
-    app.get("/users/:email/role", async (req, res) => {
+    app.get("/users/:email/role", verifyFBToken, async (req, res) => {
       const email = req.params.email;
 
       const user = await userCollection.findOne({
@@ -173,12 +216,16 @@ async function run() {
       res.send(result);
     });
     // prduct details
-    app.get("/productsDetails/:id", async (req, res) => {
-      const details = await productCollection.findOne({
-        _id: new ObjectId(req.params.id),
-      });
-      res.json(details);
-    });
+    app.get(
+      "/productsDetails/:id",
+
+      async (req, res) => {
+        const details = await productCollection.findOne({
+          _id: new ObjectId(req.params.id),
+        });
+        res.json(details);
+      },
+    );
     //
     //  update products 1
     app.get("/products/:id", async (req, res) => {
@@ -214,21 +261,22 @@ async function run() {
     });
 
     //  booking page
-    app.post("/orders", async (req, res) => {
+    app.post("/orders", verifyFBToken, async (req, res) => {
       const buyerOrders = req.body;
       const result = await orderCollection.insertOne(buyerOrders);
       res.send(result);
     });
     // my orders
-    app.get("/orders/:email", async (req, res) => {
+    app.get("/orders/:email", verifyFBToken, async (req, res) => {
       const userEmail = req.params.email;
       const query = { email: userEmail };
+
       const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
     //  all orders
 
-    app.get("/all-orders", async (req, res) => {
+    app.get("/all-orders", verifyFBToken,  async (req, res) => {
       try {
         const { status, search } = req.query;
         let query = {};
@@ -262,12 +310,17 @@ async function run() {
       res.send(result);
     });
     //  specific order details by ID
-    app.get("/order/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await orderCollection.findOne(query);
-      res.send(result);
-    });
+    app.get(
+      "/order/:id",
+      verifyFBToken,
+
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await orderCollection.findOne(query);
+        res.send(result);
+      },
+    );
     //  toggle product
     // app.patch("/products/toggle-home/:id", async (req, res) => {
     //   const id = req.params.id;
@@ -288,21 +341,26 @@ async function run() {
 
     // /////////////////////////////// Manager route
     //  1
-    app.get("/products/manager-only", async (req, res) => {
-      const email = req.query.email;
-      const search = req.query.search || "";
+    app.get(
+      "/products/manager-only",
+      verifyFBToken,
 
-      let query = { managerEmail: email };
+      async (req, res) => {
+        const email = req.query.email;
+        const search = req.query.search || "";
 
-      if (search) {
-        query.productName = { $regex: search, $options: "i" };
-      }
+        let query = { managerEmail: email };
 
-      const result = await productCollection.find(query).toArray();
-      res.send(result);
-    });
+        if (search) {
+          query.productName = { $regex: search, $options: "i" };
+        }
+
+        const result = await productCollection.find(query).toArray();
+        res.send(result);
+      },
+    );
     2;
-    app.get("/pending-orders", async (req, res) => {
+    app.get("/pending-orders", verifyFBToken, async (req, res) => {
       try {
         const query = {
           status: "pending",
@@ -319,7 +377,7 @@ async function run() {
         res.status(500).send({ message: "Failed to load pending orders" });
       }
     });
-    app.get("/orders/pending", async (req, res) => {
+    app.get("/orders/pending", verifyFBToken, async (req, res) => {
       const pending = req.query.e;
     });
     // 3. Update order status (Approve / Reject)
@@ -370,7 +428,7 @@ async function run() {
 
     //  approved orders page
 
-    app.get("/approved-orders", async (req, res) => {
+    app.get("/approved-orders", verifyFBToken, async (req, res) => {
       try {
         const result = await orderCollection
           .find({ status: "Approved" })
@@ -410,37 +468,47 @@ async function run() {
       }
     });
 
-    app.get("/orders/:id/tracking", async (req, res) => {
-      try {
-        const id = req.params.id;
+    app.get(
+      "/orders/:id/tracking",
+      verifyFBToken,
 
-        const order = await orderCollection.findOne({
-          _id: new ObjectId(id),
-        });
+      async (req, res) => {
+        try {
+          const id = req.params.id;
 
-        res.send(order?.trackingHistory || []);
-      } catch (error) {
-        res.status(500).send({ message: "Tracking load failed" });
-      }
-    });
+          const order = await orderCollection.findOne({
+            _id: new ObjectId(id),
+          });
+
+          res.send(order?.trackingHistory || []);
+        } catch (error) {
+          res.status(500).send({ message: "Tracking load failed" });
+        }
+      },
+    );
 
     // //////////////////////////////////// Buyer route
     // 1
 
-    app.get("/my-orders/:email", async (req, res) => {
-      try {
-        const email = req.params.email;
+    app.get(
+      "/my-orders/:email",
+      verifyFBToken,
 
-        const result = await orderCollection
-          .find({ email })
-          .sort({ createdAt: -1 })
-          .toArray();
+      async (req, res) => {
+        try {
+          const email = req.params.email;
 
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to load orders" });
-      }
-    });
+          const result = await orderCollection
+            .find({ email })
+            .sort({ createdAt: -1 })
+            .toArray();
+
+          res.send(result);
+        } catch (error) {
+          res.status(500).send({ message: "Failed to load orders" });
+        }
+      },
+    );
     // 2
 
     app.patch("/orders/:id/cancel", async (req, res) => {
@@ -466,7 +534,7 @@ async function run() {
       }
     });
     // 3
-    app.get("/order/:id", async (req, res) => {
+    app.get("/order/:id", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
 
@@ -495,24 +563,29 @@ async function run() {
 
     // 4 tracking orders
 
-    app.get("/my-orders/:email", async (req, res) => {
-      try {
-        const email = req.params.email;
+    app.get(
+      "/my-orders/:email",
+      verifyFBToken,
 
-        const orders = await orderCollection
-          .find({ email })
-          .sort({ createdAt: -1 })
-          .toArray();
+      async (req, res) => {
+        try {
+          const email = req.params.email;
 
-        res.send(orders);
-      } catch (error) {
-        console.error("My Orders Error:", error);
-        res.status(500).send({ message: "Failed to load orders" });
-      }
-    });
+          const orders = await orderCollection
+            .find({ email })
+            .sort({ createdAt: -1 })
+            .toArray();
+
+          res.send(orders);
+        } catch (error) {
+          console.error("My Orders Error:", error);
+          res.status(500).send({ message: "Failed to load orders" });
+        }
+      },
+    );
 
     // 5
-    app.get("/order/:id", async (req, res) => {
+    app.get("/order/:id", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
 
@@ -538,7 +611,7 @@ async function run() {
       }
     });
     // 6
-    app.post("/orders/:id/tracking", async (req, res) => {
+    app.post("/orders/:id/tracking", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
         const { status, location, note } = req.body;
@@ -566,7 +639,7 @@ async function run() {
       }
     });
     // 7
-    app.patch("/orders/:id/update-status", async (req, res) => {
+    app.patch("/orders/:id/update-status", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
         const { status } = req.body;
