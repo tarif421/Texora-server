@@ -213,7 +213,7 @@ async function run() {
     });
     // //////////////////////////  Admin
     //all products api
-    app.get("/all-products", verifyFBToken, async (req, res) => {
+    app.get("/all-products", async (req, res) => {
       const product = productCollection.find();
       const result = await product.toArray();
       res.send(result);
