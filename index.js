@@ -692,13 +692,10 @@ async function run() {
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("hello world");
+  res.send("Texora Server is Running Perfectly!");
 });
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
 module.exports = app;
-app.get('/', (req, res) => {
-    res.send("Texora Server is Running Perfectly!");
-});
