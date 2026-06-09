@@ -698,3 +698,7 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
+module.exports = app;
+app.get('/', (req, res) => {
+    res.send("Texora Server is Running Perfectly!");
+});
