@@ -30,6 +30,7 @@ admin.initializeApp({
 //  middleware
 app.use(express.json());
 app.use(cors());
+
 //  verify token
 const verifyFBToken = async (req, res, next) => {
   const token = req.headers.authorization;
@@ -56,15 +57,9 @@ const verifyFBToken = async (req, res, next) => {
 
 const localURI = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-q2jdye0-shard-00-00.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-01.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-02.9aos02c.mongodb.net:27017/Texora-DB?ssl=true&replicaSet=atlas-ntkhu4-shard-0&authSource=admin&retryWrites=true&w=majority`;
 
-
 const cloudURI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/Texora-DB?retryWrites=true&w=majority`;
 
-
 const uri = process.env.NODE_ENV === 'production' ? cloudURI : localURI;
-
-
-
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -77,29 +72,13 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
+    // Connect the client to the server (optional starting in v4.7)
     await client.connect();
 
     const db = client.db("Texora-DB");
     const productCollection = db.collection("all-products");
     const userCollection = db.collection("users");
     const orderCollection = db.collection("orders");
-
-    //  verifyRole
-    // const verifyRole = (allowedRoles) => {
-    //   return async (req, res, next) => {
-    //     const email = req.decoded_email;
-
-    //     const user = await userCollection.findOne({ email: email });
-    //     const userRole = user?.role;
-
-    //     if (!allowedRoles.includes(userRole)) {
-    //       return res.status(403).send({ message: "Forbidden Access! " });
-    //     }
-
-    //     next();
-    //   };
-    // };
 
     // payment related APIs
     app.post("/create-checkout-session", async (req, res) => {
@@ -132,6 +111,7 @@ async function run() {
 
       res.send({ url: session.url });
     });
+
     // payment update
     app.patch("/orders/pay/:id", async (req, res) => {
       const id = req.params.id;
@@ -142,6 +122,7 @@ async function run() {
       const result = await orderCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
     // users api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -161,58 +142,36 @@ async function run() {
     //  admin route apis
     app.get("/users", verifyFBToken, async (req, res) => {
       const result = await userCollection.find().toArray();
-
       res.send(result);
     });
-    // ///////////////////////////
 
     // get single userrole
-    app.get(
-      "/users/:email/role",
+    app.get("/users/:email/role", async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollection.findOne({ email });
 
-      async (req, res) => {
-        const email = req.params.email;
+      if (!user) {
+        return res.status(404).send({ message: "User not found" });
+      }
 
-        const user = await userCollection.findOne({
-          email,
-        });
-
-        if (!user) {
-          return res.status(404).send({
-            message: "User not found",
-          });
-        }
-
-        res.send({
-          role: user.role,
-          status: user.status || "active",
-        });
-      },
-    );
+      res.send({
+        role: user.role,
+        status: user.status || "active",
+      });
+    });
 
     // update user role + status
     app.patch("/users/:id", verifyFBToken, async (req, res) => {
       const id = req.params.id;
-
       const { role, status } = req.body;
-
-      const filter = {
-        _id: new ObjectId(id),
-      };
-
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
-        $set: {
-          role,
-          status,
-        },
+        $set: { role, status },
       };
-
       const result = await userCollection.updateOne(filter, updatedDoc);
-
       res.send(result);
     });
-    // //////
-    // //// All Products
+
     // add  product api
     app.post("/all-products", async (req, res) => {
       const product = req.body;
@@ -220,7 +179,7 @@ async function run() {
       res.send(result);
     });
 
-    //  latest product api
+    //  latest product api (🚨 আপনার কাঙ্ক্ষিত রাউট)
     app.get("/latestProducts", async (req, res) => {
       const result = await productCollection
         .find()
@@ -229,13 +188,14 @@ async function run() {
         .toArray();
       res.send(result);
     });
-    // //////////////////////////  Admin
+
     //all products api
     app.get("/all-products", async (req, res) => {
       const product = productCollection.find();
       const result = await product.toArray();
       res.send(result);
     });
+
     // delete
     app.delete("/all-products/:id", async (req, res) => {
       const id = req.params.id;
@@ -244,96 +204,71 @@ async function run() {
       });
       res.send(result);
     });
+
     // prduct details
-    app.get(
-      "/productsDetails/:id",
+    app.get("/productsDetails/:id", async (req, res) => {
+      const details = await productCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.json(details);
+    });
 
-      async (req, res) => {
-        const details = await productCollection.findOne({
-          _id: new ObjectId(req.params.id),
-        });
-        res.json(details);
-      },
-    );
-    //
-
-    //  2
     app.patch("/products/:id", async (req, res) => {
       try {
         const id = req.params.id;
-
         const updateData = { ...req.body };
-
-        //  remove _id
         delete updateData._id;
-
-        console.log("UPDATE DATA:", updateData);
 
         const result = await productCollection.updateOne(
           { _id: new ObjectId(id) },
-          {
-            $set: updateData,
-          },
+          { $set: updateData },
         );
-
         res.send(result);
       } catch (error) {
-        console.error("UPDATE ERROR:", error);
         res.status(500).send({ message: "Update failed" });
       }
     });
 
     //  booking page
-    app.post(
-      "/orders",
+    app.post("/orders", verifyFBToken, async (req, res) => {
+      const buyerOrders = req.body;
+      const result = await orderCollection.insertOne(buyerOrders);
+      res.send(result);
+    });
 
-      verifyFBToken,
-      async (req, res) => {
-        const buyerOrders = req.body;
-        const result = await orderCollection.insertOne(buyerOrders);
-        res.send(result);
-      },
-    );
     // my orders
     app.get("/orders/:email", verifyFBToken, async (req, res) => {
       const userEmail = req.params.email;
       const query = { email: userEmail };
-
       const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
+
     //  all orders
+    app.get("/all-orders", async (req, res) => {
+      try {
+        const { status, search } = req.query;
+        let query = {};
 
-    app.get(
-      "/all-orders",
-
-      async (req, res) => {
-        try {
-          const { status, search } = req.query;
-          let query = {};
-
-          //  Status filter (case-insensitive)
-          if (status && status !== "All") {
-            query.status = { $regex: `^${status}$`, $options: "i" };
-          }
-
-          //  Search by ID
-          if (search) {
-            try {
-              query._id = new ObjectId(search);
-            } catch {
-              // invalid id ignore
-            }
-          }
-
-          const result = await orderCollection.find(query).toArray();
-          res.send(result);
-        } catch (error) {
-          console.error(error);
-          res.status(500).send({ message: "Error fetching orders" });
+        if (status && status !== "All") {
+          query.status = { $regex: `^${status}$`, $options: "i" };
         }
-      },
-    );
+
+        if (search) {
+          try {
+            query._id = new ObjectId(search);
+          } catch {
+            // invalid id ignore
+          }
+        }
+
+        const result = await orderCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching orders" });
+      }
+    });
+
     //  dlete
     app.delete("/all-orders/:id", async (req, res) => {
       const id = req.params.id;
@@ -341,28 +276,15 @@ async function run() {
       const result = await orderCollection.deleteOne(query);
       res.send(result);
     });
-    //  specific order details by ID
-    app.get(
-      "/order/:id",
 
-      async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await orderCollection.findOne(query);
-        res.send(result);
-      },
-    );
-    //  toggle product
-    // app.patch("/products/toggle-home/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const { showOnHome } = req.body;
-    //   const query = { _id: new ObjectId(id) };
-    //   const updateDoc = {
-    //     $set: { showOnHome: showOnHome },
-    //   };
-    //   const result = await productCollection.updateOne(query, updateDoc);
-    //   res.send(result);
-    // });
+    //  specific order details by ID
+    app.get("/order/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await orderCollection.findOne(query);
+      res.send(result);
+    });
+
     app.delete(`/users/:id`, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -370,12 +292,10 @@ async function run() {
       res.send(result);
     });
 
-    // /////////////////////////////// Manager route
-    //  1
+    // Manager route
     app.get("/products/manager-only", verifyFBToken, async (req, res) => {
       const email = req.query.email;
       const search = req.query.search || "";
-
       let query = { managerEmail: email };
 
       if (search) {
@@ -385,48 +305,36 @@ async function run() {
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
-    //  update products 1
-    app.get(
-      "/products/:id",
 
-      async (req, res) => {
-        const product = await productCollection.findOne({
-          _id: new ObjectId(req.params.id),
-        });
-        res.send(product);
-      },
-    );
-    // 2
+    app.get("/products/:id", async (req, res) => {
+      const product = await productCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(product);
+    });
+
     app.get("/pending-orders", async (req, res) => {
       try {
-        const query = {
-          status: "pending",
-        };
-
+        const query = { status: "pending" };
         const result = await orderCollection
           .find(query)
           .sort({ createdAt: -1 })
           .toArray();
-
         res.send(result);
       } catch (error) {
-        console.error("Pending orders error:", error);
         res.status(500).send({ message: "Failed to load pending orders" });
       }
     });
+
     app.get("/orders/pending", async (req, res) => {
       const pending = req.query.e;
     });
-    // 3. Update order status (Approve / Reject)
+
     app.patch("/orders/:id/approve", async (req, res) => {
       try {
         const id = req.params.id;
-
         const result = await orderCollection.updateOne(
-          {
-            _id: new ObjectId(id),
-            status: "pending",
-          },
+          { _id: new ObjectId(id), status: "pending" },
           {
             $set: {
               status: "Approved",
@@ -435,22 +343,16 @@ async function run() {
             },
           },
         );
-
         res.send(result);
       } catch (error) {
-        console.error("Approve order error:", error);
         res.status(500).send({ message: "Failed to approve order" });
       }
     });
-    // 4
+
     app.patch("/orders/:id/reject", async (req, res) => {
       const id = req.params.id;
-
       const result = await orderCollection.updateOne(
-        {
-          _id: new ObjectId(id),
-          status: "pending",
-        },
+        { _id: new ObjectId(id), status: "pending" },
         {
           $set: {
             status: "rejected",
@@ -459,11 +361,8 @@ async function run() {
           },
         },
       );
-
       res.send(result);
     });
-
-    //  approved orders page
 
     app.get("/approved-orders", verifyFBToken, async (req, res) => {
       try {
@@ -471,7 +370,6 @@ async function run() {
           .find({ status: "Approved" })
           .sort({ approvedAt: -1 })
           .toArray();
-
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Failed to load approved orders" });
@@ -482,7 +380,6 @@ async function run() {
       try {
         const id = req.params.id;
         const tracking = req.body;
-
         const newTracking = {
           location: tracking.location,
           note: tracking.note,
@@ -492,13 +389,8 @@ async function run() {
 
         const result = await orderCollection.updateOne(
           { _id: new ObjectId(id) },
-          {
-            $push: {
-              trackingHistory: newTracking,
-            },
-          },
+          { $push: { trackingHistory: newTracking } },
         );
-
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Tracking update failed" });
@@ -508,50 +400,32 @@ async function run() {
     app.get("/orders/:id/tracking", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
-
-        const order = await orderCollection.findOne({
-          _id: new ObjectId(id),
-        });
-
+        const order = await orderCollection.findOne({ _id: new ObjectId(id) });
         res.send(order?.trackingHistory || []);
       } catch (error) {
         res.status(500).send({ message: "Tracking load failed" });
       }
     });
 
-    // //////////////////////////////////// Buyer route
-    // 1
-
-    app.get(
-      "/my-order/:email",
-
-      verifyFBToken,
-      async (req, res) => {
-        try {
-          const email = req.params.email;
-
-          const result = await orderCollection
-            .find({ email })
-            .sort({ createdAt: -1 })
-            .toArray();
-
-          res.send(result);
-        } catch (error) {
-          res.status(500).send({ message: "Failed to load orders" });
-        }
-      },
-    );
-    // 2
+    // Buyer route
+    app.get("/my-order/:email", verifyFBToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+        const result = await orderCollection
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to load orders" });
+      }
+    });
 
     app.patch("/orders/:id/cancel", async (req, res) => {
       try {
         const id = req.params.id;
-
         const result = await orderCollection.updateOne(
-          {
-            _id: new ObjectId(id),
-            status: "pending",
-          },
+          { _id: new ObjectId(id), status: "pending" },
           {
             $set: {
               status: "cancelled",
@@ -559,147 +433,91 @@ async function run() {
             },
           },
         );
-
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Cancel failed" });
       }
     });
-    // 3
+
     app.get("/buyer-order/:id", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
-
-        // invalid id check
         if (!ObjectId.isValid(id)) {
           return res.status(400).send({ message: "Invalid ID" });
         }
-
-        const order = await orderCollection.findOne({
-          _id: new ObjectId(id),
-        });
-
+        const order = await orderCollection.findOne({ _id: new ObjectId(id) });
         if (!order) {
           return res.status(404).send({ message: "Order not found" });
         }
-
-        // if tracking not exist → empty array
         order.trackingHistory = order.trackingHistory || [];
-
         res.send(order);
       } catch (error) {
-        console.error(error);
         res.status(500).send({ message: "Failed to load order details" });
       }
     });
 
-    // 4 tracking orders
+    app.get("/my-orders/:email", verifyFBToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+        const orders = await orderCollection
+          .find({ email })
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(orders);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to load orders" });
+      }
+    });
 
-    app.get(
-      "/my-orders/:email",
-      verifyFBToken,
-
-      async (req, res) => {
-        try {
-          const email = req.params.email;
-
-          const orders = await orderCollection
-            .find({ email })
-            .sort({ createdAt: -1 })
-            .toArray();
-
-          res.send(orders);
-        } catch (error) {
-          console.error("My Orders Error:", error);
-          res.status(500).send({ message: "Failed to load orders" });
-        }
-      },
-    );
-
-    // 5
     app.get("/orders/:id", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
-
         if (!ObjectId.isValid(id)) {
           return res.status(400).send({ message: "Invalid ID" });
         }
-
-        const order = await orderCollection.findOne({
-          _id: new ObjectId(id),
-        });
-
+        const order = await orderCollection.findOne({ _id: new ObjectId(id) });
         if (!order) {
           return res.status(404).send({ message: "Order not found" });
         }
-
-        // trackingHistory exists
         order.trackingHistory = order.trackingHistory || [];
-
         res.send(order);
       } catch (error) {
-        console.error("Order Fetch Error:", error);
         res.status(500).send({ message: "Failed to fetch order" });
       }
     });
-    // 6
+
     app.post("/orders/:id/tracking", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
         const { status, location, note } = req.body;
-
-        const newStep = {
-          status,
-          location,
-          note,
-          createdAt: new Date(),
-        };
+        const newStep = { status, location, note, createdAt: new Date() };
 
         const result = await orderCollection.updateOne(
           { _id: new ObjectId(id) },
-          {
-            $push: {
-              trackingHistory: newStep,
-            },
-          },
+          { $push: { trackingHistory: newStep } },
         );
-
         res.send(result);
       } catch (error) {
-        console.error("Tracking Add Error:", error);
         res.status(500).send({ message: "Tracking add failed" });
       }
     });
-    // 7
+
     app.patch("/orders/:id/update-status", verifyFBToken, async (req, res) => {
       try {
         const id = req.params.id;
         const { status } = req.body;
-
         const result = await orderCollection.updateOne(
           { _id: new ObjectId(id) },
-          {
-            $set: {
-              status: status,
-              updatedAt: new Date(),
-            },
-          },
+          { $set: { status: status, updatedAt: new Date() } },
         );
-
         res.send(result);
       } catch (error) {
-        console.error(error);
         res.status(500).send({ message: "Status update failed" });
       }
     });
-    // /////
-    // await client.db("admin").command({ ping: 1 });
-    // console.log(
-    //   "Pinged your deployment. You successfully connected to MongoDB!",
-    // );
+
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    // Keeps connection open
   }
 }
 run().catch(console.dir);
@@ -707,6 +525,9 @@ run().catch(console.dir);
 app.get("/", (req, res) => {
   res.send("Texora Server is Running Perfectly!");
 });
+
+// 🚨 Vercel-এর জন্য এখানে সবচেয়ে গুরুত্বপূর্ণ পরিবর্তনটি করা হয়েছে
+module.exports = app;
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
