@@ -1,5 +1,7 @@
 // const dns = require("dns");
 // dns.setServers(["8.8.8.8", "8.8.4.4"]);
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
 const express = require("express");
 const cors = require("cors");
@@ -51,7 +53,9 @@ const verifyFBToken = async (req, res, next) => {
   }
 };
 
-const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-q2jdye0-shard-00-00.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-01.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-02.9aos02c.mongodb.net:27017/Texora-DB?ssl=true&replicaSet=atlas-ntkhu4-shard-0&authSource=admin&retryWrites=true&w=majority`;
+const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0-shard-00-00.9aos02c.mongodb.net:27017,cluster0-shard-00-01.9aos02c.mongodb.net:27017,cluster0-shard-00-02.9aos02c.mongodb.net:27017/Texora-DB?ssl=true&replicaSet=atlas-ntkhu4-shard-0&authSource=admin&retryWrites=true&w=majority`;
+
+// const uri = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-q2jdye0-shard-00-00.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-01.9aos02c.mongodb.net:27017,ac-q2jdye0-shard-00-02.9aos02c.mongodb.net:27017/Texora-DB?ssl=true&replicaSet=atlas-ntkhu4-shard-0&authSource=admin&retryWrites=true&w=majority`;
 
 // const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/?appName=Cluster0`;
 
