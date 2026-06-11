@@ -1,6 +1,7 @@
 // const dns = require("dns");
-// dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
 const dns = require("dns");
+ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 dns.setDefaultResultOrder("ipv4first");
 
 const express = require("express");
@@ -59,7 +60,7 @@ const localURI = `mongodb://${process.env.DB_USER}:${process.env.DB_PASS}@ac-q2j
 
 const cloudURI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/Texora-DB?retryWrites=true&w=majority`;
 
-const uri = process.env.NODE_ENV === 'production' ? cloudURI : localURI;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9aos02c.mongodb.net/Texora-DB?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -179,7 +180,7 @@ async function run() {
       res.send(result);
     });
 
-    //  latest product api (🚨 আপনার কাঙ্ক্ষিত রাউট)
+    //  latest product api 
     app.get("/latestProducts", async (req, res) => {
       const result = await productCollection
         .find()
@@ -526,7 +527,7 @@ app.get("/", (req, res) => {
   res.send("Texora Server is Running Perfectly!");
 });
 
-// 🚨 Vercel-এর জন্য এখানে সবচেয়ে গুরুত্বপূর্ণ পরিবর্তনটি করা হয়েছে
+
 module.exports = app;
 
 app.listen(port, () => {
